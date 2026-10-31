@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roomies · shared to-dos</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1b1b3a;--bg:#ffe15d;--paper:#fffdf5;--pink:#ff5c7a;--teal:#12b5a6;--violet:#7b5cff;--orange:#ff9f1c;--lime:#8bd13f;--blue:#2e7dff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Fredoka,"Trebuchet MS",sans-serif;color:var(--ink);background:var(--bg);
+ background-image:radial-gradient(var(--ink) 1.2px,transparent 1.4px);background-size:26px 26px;background-position:0 0;
+ padding:24px 16px 60px}
+body::before{content:"";position:fixed;inset:0;background:var(--bg);opacity:.86;z-index:-1}
+button,input{font:inherit;color:inherit}
+.hide{display:none!important}
+.wrap{max-width:1000px;margin:0 auto}
+.box{background:var(--paper);border:3px solid var(--ink);border-radius:22px;box-shadow:6px 6px 0 var(--ink)}
+h1{font-size:clamp(2.2rem,7vw,3.6rem);margin:0;line-height:1;letter-spacing:-1px}
+h1 span{display:inline-block;transform:rotate(-4deg);background:var(--pink);color:#fff;padding:0 .2em;border:3px solid var(--ink);border-radius:12px;box-shadow:3px 3px 0 var(--ink)}
+.btn{cursor:pointer;border:3px solid var(--ink);background:var(--teal);color:#fff;font-weight:600;padding:10px 20px;border-radius:14px;box-shadow:4px 4px 0 var(--ink);transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn.ghost{background:var(--paper);color:var(--ink);padding:6px 14px;box-shadow:3px 3px 0 var(--ink);font-size:.9rem}
+input[type=text]{width:100%;padding:12px 14px;border:3px solid var(--ink);border-radius:14px;background:#fff;outline:none;font-size:1.05rem}
+input[type=text]:focus{box-shadow:0 0 0 4px var(--blue)}
+/* signup */
+#setup{max-width:480px;margin:6vh auto 0;padding:28px}
+#setup p{margin:.6em 0 1.2em;font-size:1.1rem}
+label.l{display:block;font-weight:600;margin:16px 0 6px}
+.picks{display:flex;gap:8px;flex-wrap:wrap}
+.pick{width:46px;height:46px;border-radius:50%;border:3px solid var(--ink);cursor:pointer;display:grid;place-items:center;font-size:1.4rem;background:#fff;transition:transform .15s}
+.pick:hover{transform:scale(1.12) rotate(-6deg)}
+.pick.on{transform:scale(1.15);box-shadow:3px 3px 0 var(--ink)}
+.pick.c.on::after{content:"✓";color:#fff;font-weight:700}
+#setup .btn{width:100%;margin-top:24px;font-size:1.15rem;background:var(--pink)}
+.err{color:#d6204a;font-weight:600;min-height:1.4em;margin-top:10px}
+.note{font-size:.85rem;opacity:.75;margin-top:14px}
+/* app */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.top .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.room{background:var(--paper);border:3px solid var(--ink);border-radius:999px;padding:4px 14px;font-weight:600}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:760px){.cols{grid-template-columns:1fr}}
+.card{padding:0;overflow:hidden;animation:pop .5s cubic-bezier(.3,1.6,.5,1) both}
+.card:nth-child(2){animation-delay:.12s}
+@keyframes pop{from{opacity:0;transform:translateY(30px) rotate(1.5deg) scale(.95)}}
+.head{padding:16px 18px;border-bottom:3px solid var(--ink);color:#fff;display:flex;gap:14px;align-items:center}
+.av{width:60px;height:60px;border-radius:50%;background:#fff;border:3px solid var(--ink);display:grid;place-items:center;font-size:2rem;flex:none;animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px) rotate(5deg)}}
+.who{flex:1;min-width:0}
+.who b{font-size:1.3rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:2px 2px 0 var(--ink)}
+.lvl{font-size:.85rem;font-weight:600}
+.bar{height:16px;background:rgba(27,27,58,.35);border:2.5px solid var(--ink);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;width:0;background:#fff;border-right:2.5px solid var(--ink);transition:width .8s cubic-bezier(.3,1.4,.5,1)}
+.streak{text-align:center;background:#fff;border:3px solid var(--ink);border-radius:14px;padding:4px 10px;color:var(--ink);line-height:1.1}
+.streak span{display:block;font-size:1.5rem}
+.streak.hot span{animation:flame .9s ease-in-out infinite}
+@keyframes flame{50%{transform:scale(1.25) rotate(-8deg)}}
+.streak small{font-weight:600;font-size:.75rem}
+.body{padding:16px 18px 20px}
+.add{display:flex;gap:8px;margin-bottom:14px}
+.add .btn{padding:8px 16px;font-size:1.3rem;line-height:1}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+li{display:flex;align-items:center;gap:12px;background:#fff;border:3px solid var(--ink);border-radius:14px;padding:10px 12px;animation:slide .35s cubic-bezier(.3,1.5,.5,1) both;position:relative;transition:background .3s}
+@keyframes slide{from{opacity:0;transform:translateX(-24px)}}
+li.out{animation:out .3s forwards}
+@keyframes out{to{opacity:0;transform:translateX(40px) scale(.9)}}
+.ck{width:28px;height:28px;border-radius:9px;border:3px solid var(--ink);background:#fff;flex:none;cursor:pointer;display:grid;place-items:center;font-weight:700;color:#fff;transition:transform .15s,background .2s}
+.ck:hover{transform:scale(1.15) rotate(-8deg)}
+.ro .ck{cursor:default}.ro .ck:hover{transform:none}
+li.done{background:#eefbe4}
+li.done .ck{background:var(--lime)}
+li.done .ck::after{content:"✓";animation:tick .4s cubic-bezier(.3,2,.5,1)}
+@keyframes tick{from{transform:scale(0) rotate(-90deg)}}
+li.done .t{text-decoration:line-through;text-decoration-thickness:3px;opacity:.55}
+.t{flex:1;word-break:break-word}
+.x{border:0;background:none;cursor:pointer;font-size:1.2rem;opacity:.35;padding:2px 6px;transition:.15s}
+.x:hover{opacity:1;transform:rotate(90deg) scale(1.2)}
+.empty{text-align:center;padding:22px 8px;font-weight:500;opacity:.7}
+.sum{margin-top:14px;font-weight:600;font-size:.95rem}
+.float{position:fixed;font-weight:700;font-size:1.6rem;color:var(--ink);background:#fff;border:3px solid var(--ink);border-radius:99px;padding:2px 12px;pointer-events:none;z-index:50;animation:fl 1.1s ease-out forwards}
+@keyframes fl{to{transform:translateY(-90px) scale(1.3);opacity:0}}
+#toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,120px);background:var(--ink);color:#fff;padding:12px 22px;border-radius:99px;font-weight:600;z-index:60;transition:transform .5s cubic-bezier(.3,1.6,.5,1)}
+#toast.show{transform:translate(-50%,0)}
+canvas{position:fixed;inset:0;pointer-events:none;z-index:70}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="wrap">
+
+<!-- PAGE 1: make your user -->
+<section id="setup" class="box">
+  <h1>Room<span>ies</span></h1>
+  <p>One list each. Both visible. Finish stuff, earn XP, keep the streak alive.</p>
+  <label class="l" for="name">Your name</label>
+  <input type="text" id="name" maxlength="14" placeholder="e.g. Sam" autocomplete="off">
+  <label class="l">Pick your buddy</label>
+  <div class="picks" id="emojis"></div>
+  <label class="l">Pick your color</label>
+  <div class="picks" id="colors"></div>
+  <label class="l" for="room">Room code <small style="font-weight:400">(first one here? leave empty. Joining? paste the code from your roommate)</small></label>
+  <input type="text" id="room" maxlength="40" placeholder="leave empty to start a new room" autocomplete="off">
+  <div class="err" id="err"></div>
+  <button class="btn" id="go">Let's go</button>
+  <div class="note" id="mode"></div>
+</section>
+
+<!-- PAGE 2: the lists -->
+<section id="app" class="hide">
+  <div class="top">
+    <h1>Room<span>ies</span></h1>
+    <div class="right"><span class="room" id="net"></span><span class="room" id="roomTag" style="cursor:pointer;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Copy room code"></span><button class="btn ghost" id="out">Switch user</button></div>
+  </div>
+  <div class="cols">
+    <div class="box card" id="meCard"></div>
+    <div class="box card ro" id="themCard"></div>
+  </div>
+</section>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ---------- SAVING ----------
+   Nothing to set up. Data is saved on jsonblob.com (a free public JSON store, no account).
+   The first person creates a room and gets a code; the roommate pastes that code to join.
+   Everything is also cached in this browser, so the site still works if the internet drops. */
+const EMOJIS = ["🦊","🐙","🐸","🦄","🐼","🐯","🦖","🐝"];
+const COLORS = ["#ff5c7a","#12b5a6","#7b5cff","#ff9f1c","#2e7dff","#e0489b"];
+const XP_PER_TASK = 10, XP_PER_LEVEL = 50;
+const $ = s => document.querySelector(s);
+const day = (off=0) => { const d = new Date(); d.setDate(d.getDate()+off); return d.toISOString().slice(0,10); };
+
+/* ---------- storage ---------- */
+const API="https://jsonblob.com/api/jsonBlob", H={"Content-Type":"application/json",Accept:"application/json"};
+const isLocal=r=>r.startsWith("local-"), cacheGet=r=>JSON.parse(localStorage.getItem("roomies."+r)||"{}"), cacheSet=(r,d)=>localStorage.setItem("roomies."+r,JSON.stringify(d));
+let pending=false;
+function setStatus(ok,txt){ const n=$("#net"); if(!n) return; n.textContent=txt||(ok?"● synced":"● offline, saved on this device"); n.style.color=ok?"#0a8a7e":"#d6204a"; }
+async function loadRoom(room){
+  if(isLocal(room)){ setStatus(false,"● this browser only"); return cacheGet(room); }
+  try{
+    const r=await fetch(`${API}/${room}`,{headers:H});
+    if(r.status===404) throw new Error("nf");
+    if(!r.ok) throw 0;
+    const d=(await r.json())||{}; cacheSet(room,d); setStatus(true); return d;
+  }catch(e){ if(e.message==="nf") throw e; setStatus(false); return cacheGet(room); }
+}
+async function saveUser(room,u){
+  const d=await loadRoom(room).catch(()=>cacheGet(room)); d[u.id]=u; cacheSet(room,d);
+  if(isLocal(room)) return;
+  try{ const r=await fetch(`${API}/${room}`,{method:"PUT",headers:H,body:JSON.stringify(d)}); if(!r.ok) throw 0; pending=false; setStatus(true); }
+  catch(e){ pending=true; setStatus(false); }
+}
+async function createRoom(){
+  try{
+    const r=await fetch(API,{method:"POST",headers:H,body:"{}"});
+    const id=(r.headers.get("Location")||r.headers.get("X-jsonblob")||"").split("/").pop();
+    if(!r.ok||!id) throw 0; return id.toLowerCase();
+  }catch(e){ return "local-"+Math.random().toString(36).slice(2,8); }
+}
+
+/* ---------- state ---------- */
+let me = null, other = null, pickE = EMOJIS[0], pickC = COLORS[0], lastOther = "";
+
+/* ---------- page 1 ---------- */
+$("#emojis").innerHTML = EMOJIS.map((e,i)=>`<button class="pick ${i?"":"on"}" data-e="${e}" type="button">${e}</button>`).join("");
+$("#colors").innerHTML = COLORS.map((c,i)=>`<button class="pick c ${i?"":"on"}" data-c="${c}" style="background:${c}" type="button" aria-label="color ${i+1}"></button>`).join("");
+$("#emojis").onclick = e => { const b = e.target.closest(".pick"); if(!b) return; pickE = b.dataset.e; [...$("#emojis").children].forEach(x=>x.classList.toggle("on",x===b)); };
+$("#colors").onclick = e => { const b = e.target.closest(".pick"); if(!b) return; pickC = b.dataset.c; [...$("#colors").children].forEach(x=>x.classList.toggle("on",x===b)); };
+$("#mode").textContent = "Saved online automatically. After you start, tap the room code at the top and send it to your roommate.";
+
+$("#go").onclick = async () => {
+  const name = $("#name").value.trim(), room0 = $("#room").value.trim().toLowerCase().replace(/[^a-z0-9-_]/g,"");
+  if(!name) return $("#err").textContent = "Type your name first.";
+  $("#err").textContent = ""; $("#go").disabled = true;
+  try{
+    const room = room0 || await createRoom();
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g,"") || "user"+Date.now();
+    const users = await loadRoom(room);
+    if(Object.keys(users).length >= 2 && !users[id]) return $("#err").textContent = "That room already has two people.";
+    const u = users[id] || {id,name,emoji:pickE,color:pickC,xp:0,streak:0,last:"",tasks:[]};
+    if(!users[id]) await saveUser(room,u);
+    localStorage.setItem("roomies.me", JSON.stringify({id,room}));
+    start(room,id);
+  }catch(e){ $("#err").textContent = e.message==="nf" ? "That room code doesn't exist. Check it with your roommate." : "Something went wrong. Try again."; }
+  finally{ $("#go").disabled = false; }
+};
+$("#out").onclick = () => { localStorage.removeItem("roomies.me"); clearInterval(timer); $("#app").classList.add("hide"); $("#setup").classList.remove("hide"); };
+
+/* ---------- page 2 ---------- */
+let timer, room;
+async function start(r,id){
+  room = r;
+  const users = await loadRoom(r); me = users[id]; me.tasks = me.tasks||[];
+  $("#setup").classList.add("hide"); $("#app").classList.remove("hide");
+  $("#roomTag").textContent = isLocal(r) ? "Room: "+r+" (this browser only)" : "Room code: "+r+" 📋";
+  renderMe(); pull(); clearInterval(timer); timer = setInterval(pull,3000);
+}
+async function pull(){
+  try{
+    if(pending) await persist();
+    const users = await loadRoom(room);
+    const o = Object.values(users).find(u=>u.id!==me.id) || null;
+    const sig = JSON.stringify(o);
+    if(sig!==lastOther){
+      if(o && other){ const prev=(other.tasks||[]).filter(t=>t.done).length, now=(o.tasks||[]).filter(t=>t.done).length;
+        if(now>prev) toast(`${o.emoji} ${o.name} just finished a task!`); }
+      lastOther = sig; other = o; renderOther();
+    }
+  }catch(e){}
+}
+const lvl = xp => Math.floor(xp/XP_PER_LEVEL)+1;
+const live = u => (u.last===day()||u.last===day(-1)) ? u.streak : 0;
+function head(u){
+  const into = u.xp % XP_PER_LEVEL, s = live(u);
+  return `<div class="head" style="background:${u.color}">
+    <div class="av">${u.emoji}</div>
+    <div class="who"><b>${esc(u.name)}</b><div class="lvl">Level ${lvl(u.xp)} · ${u.xp} XP</div>
+      <div class="bar"><i style="width:${into/XP_PER_LEVEL*100}%"></i></div></div>
+    <div class="streak ${s?"hot":""}"><span>${s?"🔥":"🧊"}</span><small>${s} day${s===1?"":"s"}</small></div></div>`;
+}
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function list(u,mine){
+  const t = u.tasks||[];
+  if(!t.length) return `<div class="empty">${mine?"Nothing here yet. Add your first task above.":"No tasks yet. Give them a nudge."}</div>`;
+  return "<ul>"+t.map(k=>`<li class="${k.done?"done":""}" data-id="${k.id}"><div class="ck" ${mine&&!k.done?'role="button" tabindex="0" aria-label="Mark done"':""}></div><span class="t">${esc(k.text)}</span>${mine?'<button class="x" aria-label="Delete">✕</button>':""}</li>`).join("")+"</ul>";
+}
+const sum = u => { const t=u.tasks||[], d=t.filter(x=>x.done).length; return t.length?`${d} of ${t.length} done`:""; };
+
+function renderMe(keepInput){
+  const val = keepInput ? ($("#newT")||{}).value||"" : "";
+  $("#meCard").innerHTML = head(me)+`<div class="body">
+    <div class="add"><input type="text" id="newT" maxlength="80" placeholder="What needs doing?"><button class="btn" id="addB" aria-label="Add task">+</button></div>
+    ${list(me,true)}<div class="sum">${sum(me)}</div></div>`;
+  $("#newT").value = val; if(keepInput) $("#newT").focus();
+  requestAnimationFrame(()=>{ const i=$("#meCard .bar i"); i.style.width="0"; requestAnimationFrame(()=>i.style.width=(me.xp%XP_PER_LEVEL)/XP_PER_LEVEL*100+"%"); });
+}
+function renderOther(){
+  $("#themCard").innerHTML = other
+    ? head(other)+`<div class="body">${list(other,false)}<div class="sum">${sum(other)}</div></div>`
+    : `<div class="body"><div class="empty" style="padding:60px 10px">Waiting for your roommate to join room <b>${esc(room)}</b>…<br><br>🕐</div></div>`;
+}
+async function persist(){ try{ await saveUser(room,me); }catch(e){ toast("Couldn't save. Check your connection."); } }
+
+$("#app").addEventListener("click", async e => {
+  if(!e.target.closest("#meCard")) return;
+  if(e.target.closest("#addB")) return add();
+  const li = e.target.closest("li"); if(!li) return;
+  const id = li.dataset.id, t = me.tasks.find(x=>x.id===id);
+  if(e.target.closest(".x")){ li.classList.add("out"); setTimeout(async()=>{ me.tasks = me.tasks.filter(x=>x.id!==id); renderMe(); await persist(); },280); return; }
+  if(e.target.closest(".ck") && !t.done) complete(t, e.target.closest(".ck"));
+});
+$("#app").addEventListener("keydown", e => {
+  if(e.key==="Enter" && e.target.id==="newT") add();
+  if((e.key==="Enter"||e.key===" ") && e.target.classList.contains("ck")){ e.preventDefault(); e.target.click(); }
+});
+async function add(){
+  const v = $("#newT").value.trim(); if(!v) return;
+  me.tasks.push({id:Date.now().toString(36),text:v,done:false});
+  renderMe(true); await persist();
+}
+async function complete(t, el){
+  t.done = true; const oldL = lvl(me.xp); me.xp += XP_PER_TASK;
+  const today = day();
+  if(me.last!==today){ me.streak = me.last===day(-1) ? me.streak+1 : 1; me.last = today; }
+  const r = el.getBoundingClientRect();
+  burst(r.left+14, r.top+14, me.color);
+  floatText(`+${XP_PER_TASK} XP`, r.left, r.top);
+  renderMe();
+  if(lvl(me.xp)>oldL){ setTimeout(()=>{ toast(`🎉 Level ${lvl(me.xp)}! Nice work, ${me.name}.`); burst(innerWidth/2, innerHeight/3, me.color, 160); },350); }
+  else if(me.streak>1 && me.last===today && me.tasks.filter(x=>x.done).length===1) toast(`🔥 ${me.streak}-day streak!`);
+  await persist();
+}
+
+$("#roomTag").onclick=()=>{ if(isLocal(room)) return; navigator.clipboard&&navigator.clipboard.writeText(room).then(()=>toast("Room code copied. Send it to your roommate."),()=>toast("Room code: "+room)); };
+
+/* ---------- effects ---------- */
+function floatText(txt,x,y){ const f=document.createElement("div"); f.className="float"; f.textContent=txt; f.style.left=x+"px"; f.style.top=y+"px"; document.body.appendChild(f); setTimeout(()=>f.remove(),1100); }
+let tt; function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3200); }
+const cv = $("#fx"), cx = cv.getContext("2d"); let parts = [], run = false;
+function size(){ cv.width=innerWidth; cv.height=innerHeight; } size(); addEventListener("resize",size);
+function burst(x,y,c,n=60){
+  const pal=[c,"#ffe15d","#12b5a6","#ff5c7a","#7b5cff","#fff"];
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=3+Math.random()*7;
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-4,r:3+Math.random()*5,c:pal[i%pal.length],l:60+Math.random()*30,rot:Math.random()*6}); }
+  if(!run){ run=true; requestAnimationFrame(tick); }
+}
+function tick(){
+  cx.clearRect(0,0,cv.width,cv.height);
+  parts = parts.filter(p=>p.l>0);
+  for(const p of parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=.35; p.vx*=.98; p.l--; p.rot+=.2;
+    cx.save(); cx.translate(p.x,p.y); cx.rotate(p.rot); cx.globalAlpha=Math.min(1,p.l/25); cx.fillStyle=p.c;
+    cx.strokeStyle="#1b1b3a"; cx.lineWidth=1.5; cx.fillRect(-p.r,-p.r/2,p.r*2,p.r); cx.strokeRect(-p.r,-p.r/2,p.r*2,p.r); cx.restore(); }
+  if(parts.length) requestAnimationFrame(tick); else run=false;
+}
+
+/* ---------- auto login ---------- */
+(async()=>{ const s = JSON.parse(localStorage.getItem("roomies.me")||"null");
+  if(s){ try{ const u=(await loadRoom(s.room))[s.id]; if(u) return start(s.room,s.id); }catch(e){} } })();
+</script>
+</body>
+</html>
