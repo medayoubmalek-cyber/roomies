@@ -132,7 +132,7 @@ const EMOJIS = ["🦊","🐙","🐸","🦄","🐼","🐯","🦖","🐝"];
 const COLORS = ["#ff5c7a","#12b5a6","#7b5cff","#ff9f1c","#2e7dff","#e0489b"];
 const XP_PER_TASK = 10, XP_PER_LEVEL = 50;
 const $ = s => document.querySelector(s);
-const day = (off=0) => { const d = new Date(); d.setDate(d.getDate()+off); return d.toISOString().slice(0,10); };
+const day = (off=0) => { const d = new Date(); d.setDate(d.getDate()+off); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 
 /* ---------- storage ---------- */
 const NTFY="https://ntfy.sh/", topic=r=>"roomies-"+r;
@@ -197,12 +197,16 @@ $("#out").onclick = () => { localStorage.removeItem("roomies.me"); clearInterval
 let timer, keep, room;
 async function start(r,id){
   room = r;
-  const users = await loadRoom(r); me = users[id]; me.tasks = me.tasks||[];
+  const users = await loadRoom(r); me = users[id]; me.tasks = me.tasks||[]; rollover(me);
   $("#setup").classList.add("hide"); $("#app").classList.remove("hide");
   $("#roomTag").textContent = "Room code: "+r+" 📋";
   renderMe(); persist(); clearInterval(keep); keep=setInterval(persist,20*60*1000); pull(); clearInterval(timer); timer = setInterval(pull,4000);
 }
+function rollover(u){ if(u.reset===day()) return false; (u.tasks||[]).forEach(t=>t.done=false); u.reset=day(); return true; }
+const view=u=>u.reset===day()?u:{...u,tasks:(u.tasks||[]).map(t=>({...t,done:false}))};
+let shownDay=day();
 async function pull(){
+  if(day()!==shownDay){ shownDay=day(); rollover(me); renderMe(true); renderOther(); persist(); }
   try{
     if(pending) await persist();
     const users = await loadRoom(room);
@@ -243,7 +247,7 @@ function renderMe(keepInput){
 }
 function renderOther(){
   $("#themCard").innerHTML = other
-    ? head(other)+`<div class="body">${list(other,false)}<div class="sum">${sum(other)}</div></div>`
+    ? head(other)+`<div class="body">${list(view(other),false)}<div class="sum">${sum(view(other))}</div></div>`
     : `<div class="body"><div class="empty" style="padding:60px 10px">Waiting for your roommate to join room <b>${esc(room)}</b>…<br><br>🕐</div></div>`;
 }
 async function persist(){ try{ await saveUser(room,me); }catch(e){ toast("Couldn't save. Check your connection."); } }
