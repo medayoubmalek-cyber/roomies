@@ -125,9 +125,9 @@ canvas{position:fixed;inset:0;pointer-events:none;z-index:70}
 
 <script>
 /* ---------- SAVING ----------
-   Nothing to set up. Data is saved on jsonblob.com (a free public JSON store, no account).
-   The first person creates a room and gets a code; the roommate pastes that code to join.
-   Everything is also cached in this browser, so the site still works if the internet drops. */
+   Nothing to set up. Each room is a channel on ntfy.sh (free, no account). Every change you make is
+   sent there, and your roommate's browser picks it up. The server keeps messages for about 12 hours,
+   and the site re-sends your list regularly while it is open. Everything is also saved in your browser. */
 const EMOJIS = ["🦊","🐙","🐸","🦄","🐼","🐯","🦖","🐝"];
 const COLORS = ["#ff5c7a","#12b5a6","#7b5cff","#ff9f1c","#2e7dff","#e0489b"];
 const XP_PER_TASK = 10, XP_PER_LEVEL = 50;
@@ -135,32 +135,35 @@ const $ = s => document.querySelector(s);
 const day = (off=0) => { const d = new Date(); d.setDate(d.getDate()+off); return d.toISOString().slice(0,10); };
 
 /* ---------- storage ---------- */
-const API="https://jsonblob.com/api/jsonBlob", H={"Content-Type":"application/json",Accept:"application/json"};
-const isLocal=r=>r.startsWith("local-"), cacheGet=r=>JSON.parse(localStorage.getItem("roomies."+r)||"{}"), cacheSet=(r,d)=>localStorage.setItem("roomies."+r,JSON.stringify(d));
-let pending=false;
-function setStatus(ok,txt){ const n=$("#net"); if(!n) return; n.textContent=txt||(ok?"● synced":"● offline, saved on this device"); n.style.color=ok?"#0a8a7e":"#d6204a"; }
+const NTFY="https://ntfy.sh/", topic=r=>"roomies-"+r;
+const cacheGet=r=>JSON.parse(localStorage.getItem("roomies."+r)||"{}"), cacheSet=(r,d)=>localStorage.setItem("roomies."+r,JSON.stringify(d));
+let pending=false; const lastId={};
+function setStatus(ok){ const n=$("#net"); if(!n) return; n.textContent=ok?"● synced":"● offline, saved on this device"; n.style.color=ok?"#0a8a7e":"#d6204a"; }
 async function loadRoom(room){
-  if(isLocal(room)){ setStatus(false,"● this browser only"); return cacheGet(room); }
+  const d=cacheGet(room);
   try{
-    const r=await fetch(`${API}/${room}`,{headers:H});
-    if(r.status===404) throw new Error("nf");
+    const r=await fetch(`${NTFY}${topic(room)}/json?poll=1&since=${lastId[room]||"all"}`);
     if(!r.ok) throw 0;
-    const d=(await r.json())||{}; cacheSet(room,d); setStatus(true); return d;
-  }catch(e){ if(e.message==="nf") throw e; setStatus(false); return cacheGet(room); }
+    for(const line of (await r.text()).split("\n")){
+      if(!line.trim()) continue;
+      let ev; try{ ev=JSON.parse(line); }catch(e){ continue; }
+      if(ev.event!=="message") continue;
+      lastId[room]=ev.id;
+      try{ const u=JSON.parse(ev.message); if(u&&u.id){ const c=d[u.id]; if(!c||(u.t||0)>=(c.t||0)) d[u.id]=u; } }catch(e){}
+    }
+    cacheSet(room,d); setStatus(true);
+  }catch(e){ setStatus(false); }
+  return d;
 }
 async function saveUser(room,u){
-  const d=await loadRoom(room).catch(()=>cacheGet(room)); d[u.id]=u; cacheSet(room,d);
-  if(isLocal(room)) return;
-  try{ const r=await fetch(`${API}/${room}`,{method:"PUT",headers:H,body:JSON.stringify(d)}); if(!r.ok) throw 0; pending=false; setStatus(true); }
+  u.t=Date.now();
+  const d=cacheGet(room); d[u.id]=u; cacheSet(room,d);
+  const open=u.tasks.filter(t=>!t.done), done=u.tasks.filter(t=>t.done).slice(-8);
+  const out={...u,tasks:[...done,...open].slice(-30).map(t=>({...t,text:t.text.slice(0,60)}))};
+  try{ const r=await fetch(NTFY+topic(room),{method:"POST",body:JSON.stringify(out)}); if(!r.ok) throw 0; pending=false; setStatus(true); }
   catch(e){ pending=true; setStatus(false); }
 }
-async function createRoom(){
-  try{
-    const r=await fetch(API,{method:"POST",headers:H,body:"{}"});
-    const id=(r.headers.get("Location")||r.headers.get("X-jsonblob")||"").split("/").pop();
-    if(!r.ok||!id) throw 0; return id.toLowerCase();
-  }catch(e){ return "local-"+Math.random().toString(36).slice(2,8); }
-}
+async function createRoom(){ return "flat-"+Math.random().toString(36).slice(2,8); }
 
 /* ---------- state ---------- */
 let me = null, other = null, pickE = EMOJIS[0], pickC = COLORS[0], lastOther = "";
@@ -191,13 +194,13 @@ $("#go").onclick = async () => {
 $("#out").onclick = () => { localStorage.removeItem("roomies.me"); clearInterval(timer); $("#app").classList.add("hide"); $("#setup").classList.remove("hide"); };
 
 /* ---------- page 2 ---------- */
-let timer, room;
+let timer, keep, room;
 async function start(r,id){
   room = r;
   const users = await loadRoom(r); me = users[id]; me.tasks = me.tasks||[];
   $("#setup").classList.add("hide"); $("#app").classList.remove("hide");
-  $("#roomTag").textContent = isLocal(r) ? "Room: "+r+" (this browser only)" : "Room code: "+r+" 📋";
-  renderMe(); pull(); clearInterval(timer); timer = setInterval(pull,3000);
+  $("#roomTag").textContent = "Room code: "+r+" 📋";
+  renderMe(); persist(); clearInterval(keep); keep=setInterval(persist,20*60*1000); pull(); clearInterval(timer); timer = setInterval(pull,4000);
 }
 async function pull(){
   try{
@@ -275,7 +278,7 @@ async function complete(t, el){
   await persist();
 }
 
-$("#roomTag").onclick=()=>{ if(isLocal(room)) return; navigator.clipboard&&navigator.clipboard.writeText(room).then(()=>toast("Room code copied. Send it to your roommate."),()=>toast("Room code: "+room)); };
+$("#roomTag").onclick=()=>{ navigator.clipboard&&navigator.clipboard.writeText(room).then(()=>toast("Room code copied. Send it to your roommate."),()=>toast("Room code: "+room)); };
 
 /* ---------- effects ---------- */
 function floatText(txt,x,y){ const f=document.createElement("div"); f.className="float"; f.textContent=txt; f.style.left=x+"px"; f.style.top=y+"px"; document.body.appendChild(f); setTimeout(()=>f.remove(),1100); }
